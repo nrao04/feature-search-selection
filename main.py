@@ -64,3 +64,42 @@ def normalize_features(dataset_rows):
         normalized_rows.append((class_label, normalized_values))
 
     return normalized_rows
+
+class NearestNeighbor:
+    # 1-nearest-neighbor: picking training row with smallest euclidean distance
+    # assuming two classes and continuous features only
+
+    def __init__(self):
+        self.training_rows = []  # list of (class_label, feature_values)
+
+    def train(self, training_rows):
+        # NN just memorizes training data (no real "learning" step)
+        self.training_rows = training_rows
+
+    def test(self, test_features, feature_subset):
+        # predict class for one test instance using only feature_subset columns
+        # feature_subset is 1-indexed to match assignment / print format {1,2,3}
+        if len(self.training_rows) == 0:
+            return None
+
+        sorted_features = sorted(feature_subset)
+        test_subset_values = [test_features[feature_id - 1] for feature_id in sorted_features]
+
+        best_distance = float("inf")
+        best_label = None
+
+        for train_label, train_features in self.training_rows:
+            train_subset_values = [train_features[feature_id - 1] for feature_id in sorted_features]
+
+            # euclidean distance on the selected features only
+            squared_sum = 0.0
+            for value_index in range(len(test_subset_values)):
+                difference = test_subset_values[value_index] - train_subset_values[value_index]
+                squared_sum += difference * difference
+
+            distance = math.sqrt(squared_sum)
+            if distance < best_distance:
+                best_distance = distance
+                best_label = train_label
+
+        return best_label
