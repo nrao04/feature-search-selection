@@ -103,3 +103,45 @@ class NearestNeighbor:
                 best_label = train_label
 
         return best_label
+    
+class Validator:
+    def __init__(self, classifier, dataset_rows):
+        # classifier = our NearestNeighbor object
+        # dataset_rows = full normalized dataset for this run
+        self.classifier = classifier
+        self.dataset_rows = dataset_rows
+
+    def evaluate(self, feature_subset, show_details=True):
+        # need a trace when testing a specific subset (show_details=True)
+        # forward/backward search pass show_details=False so output isn't huge
+        if len(self.dataset_rows) == 0:
+            return 0.0
+
+        total_rows = len(self.dataset_rows)
+        correct_predictions = 0
+
+        # leave-one-out: each instance gets to be the test row exactly once
+        for row_index in range(total_rows):
+            training_rows = self.dataset_rows[:row_index] + self.dataset_rows[row_index + 1:]
+            test_label, test_features = self.dataset_rows[row_index]
+
+            self.classifier.train(training_rows)
+            guessed_label = self.classifier.test(test_features, feature_subset)
+
+            prediction_is_correct = guessed_label == test_label
+            if prediction_is_correct:
+                correct_predictions += 1
+
+            # per-instance trace lines (matches sample output in assignment)
+            if show_details:
+                print(
+                    f"Instance Id: {row_index}, Correct Label: {float(test_label):.1f}, "
+                    f"Guessed Label: {float(guessed_label):.1f}, Accurate: {prediction_is_correct}"
+                )
+
+        accuracy_decimal = correct_predictions / total_rows
+        if show_details:
+            print(f"\nCorrectly Classified {correct_predictions}/{total_rows} instances.")
+            print(f"Accuracy: {accuracy_decimal:.2f}")
+
+        return accuracy_decimal
