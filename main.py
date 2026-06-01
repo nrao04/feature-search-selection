@@ -146,63 +146,63 @@ class Validator:
 
         return accuracy_decimal
     
-    # Helper functions for cout formatting
-    def format_feature_set(feature_collection):
-        sorted_features = sorted(feature_collection)
-        return "{" + ",".join(str(feature_id) for feature_id in sorted_features) + "}"
+# Helper functions for cout formatting
+def format_feature_set(feature_collection):
+    sorted_features = sorted(feature_collection)
+    return "{" + ",".join(str(feature_id) for feature_id in sorted_features) + "}"
 
-    def get_level_text(level_number):
-        level_words = ["", "single", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-        if level_number == 1:
-            return "single features"
-        if level_number <= 10:
-            return f"{level_words[level_number]}-feature sets"
-        return f"{level_number}-feature sets"
+def get_level_text(level_number):
+    level_words = ["", "single", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+    if level_number == 1:
+        return "single features"
+    if level_number <= 10:
+        return f"{level_words[level_number]}-feature sets"
+    return f"{level_number}-feature sets"
 
-    # ----------- Start of Search Algorithms -----------
-    def forward_selection(total_features, validator):
-        # Start empty then add one feature at a time
-        current_feature_list = []
-        base_accuracy = validator.evaluate(set(current_feature_list), show_details=False) * 100.0
+# start of search algorithms
+def forward_selection(total_features, validator):
+    # Start empty then add one feature at a time
+    current_feature_list = []
+    base_accuracy = validator.evaluate(set(current_feature_list), show_details=False) * 100.0
 
-        print(
-            "Running nearest neighbor with no features (default rate), "
-            f'using "leaving-one-out" evaluation, I get an accuracy of {base_accuracy:.1f}%'
-        )
-        print()
-        print("Beginning search.")
+    print(
+        "Running nearest neighbor with no features (default rate), "
+        f'using "leaving-one-out" evaluation, I get an accuracy of {base_accuracy:.1f}%'
+    )
+    print()
+    print("Beginning search.")
 
-        best_overall_list = current_feature_list.copy()
-        best_overall_accuracy = base_accuracy
+    best_overall_list = current_feature_list.copy()
+    best_overall_accuracy = base_accuracy
 
-        for level_number in range(1, total_features + 1):
-            print(f"\nEvaluating {get_level_text(level_number)}:")
+    for level_number in range(1, total_features + 1):
+        print(f"\nEvaluating {get_level_text(level_number)}:")
 
-            best_level_list = None
-            best_level_accuracy = -1.0
+        best_level_list = None
+        best_level_accuracy = -1.0
 
-            remaining_features = sorted(set(range(1, total_features + 1)) - set(current_feature_list))
-            for feature_id in remaining_features:
-                candidate_list = current_feature_list + [feature_id]
-                candidate_accuracy = validator.evaluate(set(candidate_list), show_details=False) * 100.0
-                print(f"Using feature(s) {format_feature_set(candidate_list)} accuracy is {candidate_accuracy:.1f}%")
+        remaining_features = sorted(set(range(1, total_features + 1)) - set(current_feature_list))
+        for feature_id in remaining_features:
+            candidate_list = current_feature_list + [feature_id]
+            candidate_accuracy = validator.evaluate(set(candidate_list), show_details=False) * 100.0
+            print(f"Using feature(s) {format_feature_set(candidate_list)} accuracy is {candidate_accuracy:.1f}%")
 
-                if candidate_accuracy > best_level_accuracy:
-                    best_level_accuracy = candidate_accuracy
-                    best_level_list = candidate_list
+            if candidate_accuracy > best_level_accuracy:
+                best_level_accuracy = candidate_accuracy
+                best_level_list = candidate_list
 
-            if best_level_accuracy < best_overall_accuracy:
-                print("(Warning, Accuracy has decreased! Continuing search in case of local maxima)")
+        if best_level_accuracy < best_overall_accuracy:
+            print("(Warning, Accuracy has decreased! Continuing search in case of local maxima)")
 
 
-            if best_level_accuracy > best_overall_accuracy:
-                best_overall_accuracy = best_level_accuracy
-                best_overall_list = best_level_list.copy()
+        if best_level_accuracy > best_overall_accuracy:
+            best_overall_accuracy = best_level_accuracy
+            best_overall_list = best_level_list.copy()
 
-            print(f"Feature set {format_feature_set(best_level_list)} was best, accuracy is {best_level_accuracy:.1f}%")
-            current_feature_list = best_level_list
+        print(f"Feature set {format_feature_set(best_level_list)} was best, accuracy is {best_level_accuracy:.1f}%")
+        current_feature_list = best_level_list
 
-            if len(current_feature_list) == total_features:
-                break
+        if len(current_feature_list) == total_features:
+            break
 
-        return set(best_overall_list), best_overall_accuracy
+    return set(best_overall_list), best_overall_accuracy
