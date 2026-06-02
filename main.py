@@ -206,3 +206,50 @@ def forward_selection(total_features, validator):
             break
 
     return set(best_overall_list), best_overall_accuracy
+
+def backward_elimination(total_features, validator):
+    # start with ALL features, greedily remove one feature per level
+    # at each level try dropping each current feature, keep best LOOCV accuracy
+    current_feature_set = set(range(1, total_features + 1))
+    base_accuracy = validator.evaluate(current_feature_set, show_details=False) * 100.0
+
+    print(
+        f'Running nearest neighbor with all {total_features} features, using "leaving-one-out" '
+        f"evaluation, I get an accuracy of {base_accuracy:.1f}%"
+    )
+    print()
+    print("Beginning search.")
+
+    best_overall_set = current_feature_set.copy()
+    best_overall_accuracy = base_accuracy
+
+    for level_number in range(total_features - 1, 0, -1):
+        print(f"\nEvaluating {get_level_text(level_number)}:")
+
+        best_level_set = None
+        best_level_accuracy = -1.0
+
+        # nested loop: trying to remove each feature still in the set
+        for feature_id in sorted(current_feature_set):
+            candidate_set = current_feature_set - {feature_id}
+            candidate_accuracy = validator.evaluate(candidate_set, show_details=False) * 100.0
+            print(f"Using feature(s) {format_feature_set(candidate_set)} accuracy is {candidate_accuracy:.1f}%")
+
+            if candidate_accuracy > best_level_accuracy:
+                best_level_accuracy = candidate_accuracy
+                best_level_set = candidate_set
+
+        if best_level_accuracy < best_overall_accuracy:
+            print("(Warning, Accuracy has decreased! Continuing search in case of local maxima)")
+
+        if best_level_accuracy > best_overall_accuracy:
+            best_overall_accuracy = best_level_accuracy
+            best_overall_set = best_level_set.copy()
+
+        print(f"Feature set {format_feature_set(best_level_set)} was best, accuracy is {best_level_accuracy:.1f}%")
+        current_feature_set = best_level_set
+
+        if len(current_feature_set) == 0:
+            break
+
+    return best_overall_set, best_overall_accuracy
