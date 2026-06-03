@@ -302,3 +302,56 @@ def run_specific_feature_subset_test():
     print(f"\nTime for leave-one-out validation: {validation_duration:.4f} seconds")
     print(f"Using feature(s) {format_feature_set(selected_features)}, accuracy is about {accuracy:.3f}")
     print(f"\nTotal time: {load_duration + normalize_duration + validation_duration:.4f} seconds")
+
+def main():
+   print("Welcome to Nikhil's and Akshay's Feature Selection Algorithm.")
+   print("\nType in the name of the file to test: ", end="")
+   file_name = input().strip()
+
+   print("\nType the number of the algorithm you want to run.")
+   print("    1) Forward Selection")
+   print("    2) Backward Elimination")
+   print("    3) Test Specific Feature Subset")
+   try:
+       selected_algorithm = int(input().strip())
+   except ValueError:
+       print("Invalid choice")
+       return
+
+   if selected_algorithm == 3:
+       run_specific_feature_subset_test()
+       return
+   if selected_algorithm not in (1, 2):
+       print("Invalid choice")
+       return
+
+   dataset_rows = load_data(file_name)
+   if len(dataset_rows) == 0:
+       print("Error: No data loaded from file")
+       return
+
+   total_features = len(dataset_rows[0][1])
+   print(
+       f"\nThis dataset has {total_features} features (not including the class attribute), "
+       f"with {len(dataset_rows)} instances."
+   )
+   print()
+   print("Please wait while I normalize the data... Done!")
+   print()
+   normalized_rows = normalize_features(dataset_rows)
+
+   classifier = NearestNeighbor()
+   validator = Validator(classifier, normalized_rows)
+
+   if selected_algorithm == 1:
+       best_features, best_accuracy = forward_selection(total_features, validator)
+   elif selected_algorithm == 2:
+       best_features, best_accuracy = backward_elimination(total_features, validator)
+   print(
+       f"\nFinished search!! The best feature subset is {format_feature_set(best_features)}, "
+       f"which has an accuracy of {best_accuracy:.1f}%"
+   )
+
+
+if __name__ == "__main__":
+   main()
