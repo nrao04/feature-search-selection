@@ -137,7 +137,7 @@ class Validator:
         correct = 0
 
         for i in range(total):
-            # leave one out — train on everyone except the row we're testing
+            # leave one out, train on everyone except the row we're testing
             train_data = self.data[:i] + self.data[i + 1:]
             true_label, test_features = self.data[i]
 
@@ -159,211 +159,192 @@ class Validator:
 
         return accuracy
 
-def format_feature_set(feature_collection):
-    return "{" + ",".join(str(feature_id) for feature_id in sorted(feature_collection)) + "}"
+# small helpers for formatting
+
+def format_feature_set(features):
+    return "{" + ",".join(str(feature_id) for feature_id in sorted(features)) + "}"
 
 
-def get_level_text(level_number):
-    level_words = ["", "single", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-    if level_number == 1:
+def get_level_text(level):
+    words = ["", "single", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+    if level == 1:
         return "single features"
-    if level_number <= 10:
-        return f"{level_words[level_number]}-feature sets"
-    return f"{level_number}-feature sets"
+    if level <= 10:
+        return f"{words[level]}-feature sets"
+    return f"{level}-feature sets"
+
     
 # start of search algorithms
-def forward_selection(total_features, validator):
-    # Start empty then add one feature at a time
-    current_feature_list = []
-    base_accuracy = validator.evaluate(set(current_feature_list), show_details=False) * 100.0
+
+def forward_selection(num_features, validator):
+    current = []
+    base_acc = validator.evaluate(set(current), show_details=False) * 100.0
 
     print(
         "Running nearest neighbor with no features (default rate), "
-        f'using "leaving-one-out" evaluation, I get an accuracy of {base_accuracy:.1f}%'
+        f'using "leaving-one-out" evaluation, I get an accuracy of {base_acc:.1f}%'
     )
-    print()
-    print("Beginning search.")
+    print("\nBeginning search.")
 
-    best_overall_list = current_feature_list.copy()
-    best_overall_accuracy = base_accuracy
+    best_set = current.copy()
+    best_acc = base_acc
 
-    for level_number in range(1, total_features + 1):
-        print(f"\nEvaluating {get_level_text(level_number)}:")
+    for level in range(1, num_features + 1):
+        print(f"\nEvaluating {get_level_text(level)}:")
+        level_best = None
+        level_acc = -1.0
 
-        best_level_list = None
-        best_level_accuracy = -1.0
+        for feature_id in sorted(set(range(1, num_features + 1)) - set(current)):
+            candidate = current + [feature_id]
+            acc = validator.evaluate(set(candidate), show_details=False) * 100.0
+            print(f"Using feature(s) {format_feature_set(candidate)} accuracy is {acc:.1f}%")
+            if acc > level_acc:
+                level_acc = acc
+                level_best = candidate
 
-        remaining_features = sorted(set(range(1, total_features + 1)) - set(current_feature_list))
-        for feature_id in remaining_features:
-            candidate_list = current_feature_list + [feature_id]
-            candidate_accuracy = validator.evaluate(set(candidate_list), show_details=False) * 100.0
-            print(f"Using feature(s) {format_feature_set(candidate_list)} accuracy is {candidate_accuracy:.1f}%")
-
-            if candidate_accuracy > best_level_accuracy:
-                best_level_accuracy = candidate_accuracy
-                best_level_list = candidate_list
-
-        if best_level_accuracy < best_overall_accuracy:
+        if level_acc < best_acc:
             print("(Warning, Accuracy has decreased! Continuing search in case of local maxima)")
+        # track best subset from any level, not just the last one
+        if level_acc > best_acc:
+            best_acc = level_acc
+            best_set = level_best.copy()
 
+        print(f"Feature set {format_feature_set(level_best)} was best, accuracy is {level_acc:.1f}%")
+        current = level_best
 
-        if best_level_accuracy > best_overall_accuracy:
-            best_overall_accuracy = best_level_accuracy
-            best_overall_list = best_level_list.copy()
+    return set(best_set), best_acc
 
-        print(f"Feature set {format_feature_set(best_level_list)} was best, accuracy is {best_level_accuracy:.1f}%")
-        current_feature_list = best_level_list
-
-        if len(current_feature_list) == total_features:
-            break
-
-    return set(best_overall_list), best_overall_accuracy
-
-def backward_elimination(total_features, validator):
-    # start with ALL features, greedily remove one feature per level
-    # at each level try dropping each current feature, keep best LOOCV accuracy
-    current_feature_set = set(range(1, total_features + 1))
-    base_accuracy = validator.evaluate(current_feature_set, show_details=False) * 100.0
+def backward_elimination(num_features, validator):
+    current = set(range(1, num_features + 1))
+    base_acc = validator.evaluate(current, show_details=False) * 100.0
 
     print(
-        f'Running nearest neighbor with all {total_features} features, using "leaving-one-out" '
-        f"evaluation, I get an accuracy of {base_accuracy:.1f}%"
+        f'Running nearest neighbor with all {num_features} features, using "leaving-one-out" '
+        f"evaluation, I get an accuracy of {base_acc:.1f}%"
     )
-    print()
-    print("Beginning search.")
+    print("\nBeginning search.")
 
-    best_overall_set = current_feature_set.copy()
-    best_overall_accuracy = base_accuracy
+    best_set = current.copy()
+    best_acc = base_acc
 
-    for level_number in range(total_features - 1, 0, -1):
-        print(f"\nEvaluating {get_level_text(level_number)}:")
+    for level in range(num_features - 1, 0, -1):
+        print(f"\nEvaluating {get_level_text(level)}:")
+        level_best = None
+        level_acc = -1.0
 
-        best_level_set = None
-        best_level_accuracy = -1.0
+        for feature_id in sorted(current):
+            candidate = current - {feature_id}
+            acc = validator.evaluate(candidate, show_details=False) * 100.0
+            print(f"Using feature(s) {format_feature_set(candidate)} accuracy is {acc:.1f}%")
+            if acc > level_acc:
+                level_acc = acc
+                level_best = candidate
 
-        # nested loop: trying to remove each feature still in the set
-        for feature_id in sorted(current_feature_set):
-            candidate_set = current_feature_set - {feature_id}
-            candidate_accuracy = validator.evaluate(candidate_set, show_details=False) * 100.0
-            print(f"Using feature(s) {format_feature_set(candidate_set)} accuracy is {candidate_accuracy:.1f}%")
-
-            if candidate_accuracy > best_level_accuracy:
-                best_level_accuracy = candidate_accuracy
-                best_level_set = candidate_set
-
-        if best_level_accuracy < best_overall_accuracy:
+        if level_acc < best_acc:
             print("(Warning, Accuracy has decreased! Continuing search in case of local maxima)")
+        if level_acc > best_acc:
+            best_acc = level_acc
+            best_set = level_best.copy()
 
-        if best_level_accuracy > best_overall_accuracy:
-            best_overall_accuracy = best_level_accuracy
-            best_overall_set = best_level_set.copy()
+        print(f"Feature set {format_feature_set(level_best)} was best, accuracy is {level_acc:.1f}%")
+        current = level_best
 
-        print(f"Feature set {format_feature_set(best_level_set)} was best, accuracy is {best_level_accuracy:.1f}%")
-        current_feature_set = best_level_set
+    return best_set, best_acc
 
-        if len(current_feature_set) == 0:
-            break
+# formats a set of feature IDs as a string like '{1,3,5}'
 
-    return best_overall_set, best_overall_accuracy
-
-# Formats a set of feature IDs as a string like '{1,3,5}'
 def run_specific_feature_subset_test():
-    print("\nTest Part 2 feature subsets:")
-    print("    1) Small dataset - features {3, 5, 7}") # Hardcoded for the small set
-    print("    2) Large dataset - features {1, 15, 27}") # Hardcoded for the large set
+    print("\nTest a specific feature subset (full leave-one-out trace):")
+    print("    1) Small dataset - features {3, 5, 7}")
+    print("    2) Large dataset - features {1, 15, 27}")
+
     try:
-        selected_test = int(input().strip())
+        choice = int(input().strip())
     except ValueError:
-        print("Invalid input, please enter a 1 or 2.")
+        print("Invalid input, please enter 1 or 2.")
         return
 
-    if selected_test == 1:
-        file_name = "CS170_Small_DataSet__17.txt"
-        selected_features = {3, 5, 7}
-    elif selected_test == 2:
-        file_name = "CS170_Large_DataSet__23.txt"
-        selected_features = {1, 15, 27}
-    else:
+    if choice not in SUBSET_TESTS:
         print("Invalid choice")
         return
 
-    print(f"\nReading data from {file_name}...")
-    start_time = time.time()
-    dataset_rows = load_data(file_name)
-    load_duration = time.time() - start_time
-    if len(dataset_rows) == 0:
+    dataset_num, features = SUBSET_TESTS[choice]
+    file_path = os.path.join(DATASET_FOLDER, DATASETS[dataset_num][1])
+    if not os.path.isfile(file_path):
+        print(f"Error: could not find dataset file at {file_path}")
+        return
+
+    print(f"\nReading data from {file_path}...")
+    start = time.time()
+    data = load_data(file_path)
+    if not data:
         print("Error: No data loaded from file")
         return
-    print(f"Time to load data: {load_duration:.4f} seconds")
 
-    print("Normalizing features...")
-    start_time = time.time()
-    normalized_rows = normalize_features(dataset_rows)
-    normalize_duration = time.time() - start_time
-    print(f"Time to normalize features: {normalize_duration:.4f} seconds")
-    print(f"Loaded {len(normalized_rows)} instances with {len(normalized_rows[0][1])} features")
+    normalized = normalize_features(data)
+    load_time = time.time() - start
 
+    print(f"Time to load and normalize data: {load_time:.4f} seconds")
+    print(f"Loaded {len(normalized)} instances with {len(normalized[0][1])} features")
     print("\nPerforming leave-one-out cross-validation...")
-    classifier = NearestNeighbor()
-    validator = Validator(classifier, normalized_rows)
 
-    start_time = time.time()
-    accuracy = validator.evaluate(selected_features, show_details=True)
-    validation_duration = time.time() - start_time
+    validator = Validator(NearestNeighbor(), normalized)
+    start = time.time()
+    accuracy = validator.evaluate(features, show_details=True)
+    val_time = time.time() - start
 
-    print(f"\nTime for leave-one-out validation: {validation_duration:.4f} seconds")
-    print(f"Using feature(s) {format_feature_set(selected_features)}, accuracy is about {accuracy:.3f}")
-    print(f"\nTotal time: {load_duration + normalize_duration + validation_duration:.4f} seconds")
+    print(f"\nTime for leave-one-out validation: {val_time:.4f} seconds")
+    print(f"Using feature(s) {format_feature_set(features)}, accuracy is about {accuracy:.3f}")
+    print(f"\nTotal time: {load_time + val_time:.4f} seconds")
+
 
 def main():
-   print("Welcome to Nikhil's and Akshay's Feature Selection Algorithm.")
-   print("\nType in the name of the file to test: ", end="")
-   file_name = input().strip()
+    print("Welcome to Nikhil's and Akshay's Feature Selection Algorithm.")
 
-   print("\nType the number of the algorithm you want to run.")
-   print("    1) Forward Selection")
-   print("    2) Backward Elimination")
-   print("    3) Test Specific Feature Subset")
-   try:
-       selected_algorithm = int(input().strip())
-   except ValueError:
-       print("Invalid choice")
-       return
+    file_path = pick_dataset()
+    if file_path is None:
+        return
 
-   if selected_algorithm == 3:
-       run_specific_feature_subset_test()
-       return
-   if selected_algorithm not in (1, 2):
-       print("Invalid choice")
-       return
+    print("\nType the number of the algorithm you want to run.")
+    print("    1) Forward Selection")
+    print("    2) Backward Elimination")
+    print("    3) Test Specific Feature Subset")
 
-   dataset_rows = load_data(file_name)
-   if len(dataset_rows) == 0:
-       print("Error: No data loaded from file")
-       return
+    try:
+        algo = int(input().strip())
+    except ValueError:
+        print("Invalid choice")
+        return
 
-   total_features = len(dataset_rows[0][1])
-   print(
-       f"\nThis dataset has {total_features} features (not including the class attribute), "
-       f"with {len(dataset_rows)} instances."
-   )
-   print()
-   print("Please wait while I normalize the data... Done!")
-   print()
-   normalized_rows = normalize_features(dataset_rows)
+    if algo == 3:
+        run_specific_feature_subset_test()
+        return
+    if algo not in (1, 2):
+        print("Invalid choice")
+        return
 
-   classifier = NearestNeighbor()
-   validator = Validator(classifier, normalized_rows)
+    data = load_data(file_path)
+    if not data:
+        print("Error: No data loaded from file")
+        return
 
-   if selected_algorithm == 1:
-       best_features, best_accuracy = forward_selection(total_features, validator)
-   elif selected_algorithm == 2:
-       best_features, best_accuracy = backward_elimination(total_features, validator)
-   print(
-       f"\nFinished search!! The best feature subset is {format_feature_set(best_features)}, "
-       f"which has an accuracy of {best_accuracy:.1f}%"
-   )
+    num_features = len(data[0][1])
+    print(
+        f"\nThis dataset has {num_features} features (not including the class attribute), "
+        f"with {len(data)} instances."
+    )
+    print("\nPlease wait while I normalize the data... Done!\n")
 
+    validator = Validator(NearestNeighbor(), normalize_features(data))
+    if algo == 1:
+        best_features, best_acc = forward_selection(num_features, validator)
+    else:
+        best_features, best_acc = backward_elimination(num_features, validator)
+
+    print(
+        f"\nFinished search!! The best feature subset is {format_feature_set(best_features)}, "
+        f"which has an accuracy of {best_acc:.1f}%"
+    )
 
 if __name__ == "__main__":
-   main()
+    main()
