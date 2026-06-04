@@ -150,61 +150,49 @@ class NearestNeighbor:
 
         return best_label
     
+# validator wrapper (scores how good a feature subset is)
+
 class Validator:
+    # this is the "wrapper", & nn inside leave-one-out evaluation
+    
     def __init__(self, classifier, dataset_rows):
-        # classifier = our NearestNeighbor object
-        # dataset_rows = full normalized dataset for this run
         self.classifier = classifier
         self.dataset_rows = dataset_rows
 
     def evaluate(self, feature_subset, show_details=True):
-        # need a trace when testing a specific subset (show_details=True)
-        # forward/backward search pass show_details=False so output isn't huge
-        if len(self.dataset_rows) == 0:
+        # leave-one-out cross validation:
+        # hold out one row, train on the rest, see if we guess that row right
+        # repeat for every row and count how many we got correct
+        if not self.dataset_rows:
             return 0.0
 
         total_rows = len(self.dataset_rows)
         correct_predictions = 0
 
-        # leave-one-out: each instance gets to be the test row exactly once
         for row_index in range(total_rows):
+            # everything except the current row becomes training data
             training_rows = self.dataset_rows[:row_index] + self.dataset_rows[row_index + 1:]
             test_label, test_features = self.dataset_rows[row_index]
 
             self.classifier.train(training_rows)
             guessed_label = self.classifier.test(test_features, feature_subset)
+            is_correct = guessed_label == test_label
+            correct_predictions += is_correct
 
-            prediction_is_correct = guessed_label == test_label
-            if prediction_is_correct:
-                correct_predictions += 1
-
-            # per-instance trace lines (matches sample output in assignment)
+            # print one line per instance when testing a specific subset
             if show_details:
                 print(
                     f"Instance Id: {row_index}, Correct Label: {float(test_label):.1f}, "
-                    f"Guessed Label: {float(guessed_label):.1f}, Accurate: {prediction_is_correct}"
+                    f"Guessed Label: {float(guessed_label):.1f}, Accurate: {is_correct}"
                 )
 
-        accuracy_decimal = correct_predictions / total_rows
+        accuracy = correct_predictions / total_rows
         if show_details:
             print(f"\nCorrectly Classified {correct_predictions}/{total_rows} instances.")
-            print(f"Accuracy: {accuracy_decimal:.2f}")
+            print(f"Accuracy: {accuracy:.2f}")
 
-        return accuracy_decimal
+        return accuracy
     
-# Helper functions for cout formatting
-def format_feature_set(feature_collection):
-    sorted_features = sorted(feature_collection)
-    return "{" + ",".join(str(feature_id) for feature_id in sorted_features) + "}"
-
-def get_level_text(level_number):
-    level_words = ["", "single", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-    if level_number == 1:
-        return "single features"
-    if level_number <= 10:
-        return f"{level_words[level_number]}-feature sets"
-    return f"{level_number}-feature sets"
-
 # start of search algorithms
 def forward_selection(total_features, validator):
     # Start empty then add one feature at a time
