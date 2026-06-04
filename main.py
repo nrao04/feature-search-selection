@@ -12,7 +12,7 @@ DATASETS = {
 
 SUBSET_TESTS = {
     1: (1, {3, 5, 7}),
-    2: (2, {1, 15, 27}),
+    2: (2, {1, 15, 17}),
 }
 
 # concise helpers reused later
@@ -260,7 +260,7 @@ def backward_elimination(num_features, validator):
 def run_specific_feature_subset_test():
     print("\nTest a specific feature subset (full leave-one-out trace):")
     print("    1) Small dataset - features {3, 5, 7}")
-    print("    2) Large dataset - features {1, 15, 27}")
+    print("    2) Large dataset - features {1, 15, 17}")
 
     try:
         choice = int(input().strip())
@@ -287,6 +287,12 @@ def run_specific_feature_subset_test():
 
     normalized = normalize_features(data)
     load_time = time.time() - start
+    
+    num_features = len(normalized[0][1])
+    bad_features = [f for f in features if f < 1 or f > num_features]
+    if bad_features:
+        print(f"Error: feature(s) {bad_features} are not in this dataset (only {num_features} features).")
+        return
 
     print(f"Time to load and normalize data: {load_time:.4f} seconds")
     print(f"Loaded {len(normalized)} instances with {len(normalized[0][1])} features")
