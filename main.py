@@ -1,37 +1,27 @@
 import os
 import time
 
-# hardcoding datasets and and small localized helpers for future use
-# load data, normalize features, score subsets with leave-one-out, run forward/backward search
+# ps: paths work even if you run the program from a different folder
+DATASET_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets")
 
-# dataset picker — all files live in the datasets/ folder
-DATASET_FOLDER = "datasets"
 DATASETS = {
     1: ("Small dataset", "CS170_Small_DataSet__17.txt"),
     2: ("Large dataset", "CS170_Large_DataSet__23.txt"),
-    # part 2 real-world dataset
     3: ("Real dataset", "wine_data.txt"),
 }
 
-# hardcoded feature subsets for the "test one subset" menu option
 SUBSET_TESTS = {
     1: (1, {3, 5, 7}),
     2: (2, {1, 15, 27}),
 }
 
-
-def get_dataset_path(choice):
-    # turn menu number into full file path like datasets/CS170_Small_DataSet__17.txt
-    if choice not in DATASETS:
-        return None
-    return os.path.join(DATASET_FOLDER, DATASETS[choice][1])
-
+# concise helpers reused later
 
 def pick_dataset():
-    # ask user to pick small, large, or real dataset (same numbered style as algorithm menu)
+    
     print("\nWhich dataset do you want to use?")
-    for number, (label, _) in DATASETS.items():
-        print(f"    {number}) {label}")
+    for num, (label, _) in DATASETS.items():
+        print(f"    {num}) {label}")
 
     try:
         choice = int(input().strip())
@@ -39,10 +29,11 @@ def pick_dataset():
         print("Invalid choice. Please enter 1, 2, or 3.")
         return None
 
-    file_path = get_dataset_path(choice)
-    if file_path is None:
+    if choice not in DATASETS:
         print("Invalid choice. Please enter 1, 2, or 3.")
         return None
+
+    file_path = os.path.join(DATASET_FOLDER, DATASETS[choice][1])
     if not os.path.isfile(file_path):
         print(f"Error: could not find dataset file at {file_path}")
         return None
@@ -51,101 +42,82 @@ def pick_dataset():
     print(f"Selected {label} ({file_name})")
     return file_path
 
-# data loading and preprocessing
 
 def load_data(file_path):
-    # load dataset from file, first column is class, rest are features
-    # space-separated files while wine file uses commas instead
-    dataset_rows = []
+    data = []
+    with open(file_path, "r") as file:
+        for line in file:
+            line = line.strip()
+            if not line:
+                continue
 
-    with open(file_path, "r") as input_file:
-        for raw_line in input_file:
-            line_text = raw_line.strip()
-            if not line_text:
-                continue  # skip empty lines
-
-            if "," in line_text:
-                parts = [value.strip() for value in line_text.split(",") if value.strip()]
+            # wine came in as csv, and files are space separated
+            if "," in line:
+                parts = [value.strip() for value in line.split(",") if value.strip()]
             else:
-                parts = line_text.split()
+                parts = line.split()
 
             class_label = int(float(parts[0]))
-            feature_values = [float(value) for value in parts[1:]]
-            dataset_rows.append((class_label, feature_values))
+            data.append((class_label, [float(value) for value in parts[1:]]))
 
-    return dataset_rows
+    return data
 
-def normalize_features(dataset_rows):
-    # min-max normalize each feature column: (value - min) / (max - min)
-    # features in file aren't normalized, so we fix that here
-    if not dataset_rows or not dataset_rows[0][1]:
-        return dataset_rows
 
-    total_features = len(dataset_rows[0][1])
-    column_mins = [float("inf")] * total_features
-    column_maxs = [float("-inf")] * total_features
+def normalize_features(data):
+    
+    if not data or not data[0][1]:
+        return data
 
-    # go through all rows and find the smallest/largest value for each feature
-    for class_label, feature_values in dataset_rows:
-        for feature_index, value in enumerate(feature_values):
-            if value < column_mins[feature_index]:
-                column_mins[feature_index] = value
-            elif value > column_maxs[feature_index]:
-                column_maxs[feature_index] = value
+    num_features = len(data[0][1])
+    mins = [float("inf")] * num_features
+    maxs = [float("-inf")] * num_features
 
-    # now scale every value into the 0 to 1 range per column
-    normalized_rows = []
-    for class_label, feature_values in dataset_rows:
-        normalized_values = []
-        for feature_index, value in enumerate(feature_values):
-            span = column_maxs[feature_index] - column_mins[feature_index]
-            if span == 0:
-                normalized_values.append(0.0)  # all same value in this column
+    for class_label, features in data:
+        for i, value in enumerate(features):
+            if value < mins[i]:
+                mins[i] = value
+            # separate ifs — elif skips max on the first value in a column
+            if value > maxs[i]:
+                maxs[i] = value
+
+    normalized = []
+    for class_label, features in data:
+        new_features = []
+        for i, value in enumerate(features):
+            spread = maxs[i] - mins[i]
+            if spread == 0:
+                new_features.append(0.0)  # column never changes, avoid divide by zero
             else:
-                normalized_values.append((value - column_mins[feature_index]) / span)
-        normalized_rows.append((class_label, normalized_values))
+                new_features.append((value - mins[i]) / spread)
+        normalized.append((class_label, new_features))
 
-    return normalized_rows
-
-def load_and_normalize(file_path):
-    # one helper so we don't copy load + normalize steps in multiple places
-    dataset_rows = load_data(file_path)
-    if not dataset_rows:
-        return None, None
-    return dataset_rows, normalize_features(dataset_rows)
+    return normalized
 
 # nearest neighbor classifier
 
 class NearestNeighbor:
-    # simple 1-nearest-neighbor using euclidean distance
-    # assignment says get this working before trying the search algorithms
-
+    
     def __init__(self):
-        self.training_rows = []  # list of (class_label, feature_values)
+        self.training_data = []
 
-    def train(self, training_rows):
-        # nn doesn't really train, it just remembers all the rows
-        self.training_rows = training_rows
+    def train(self, training_data):
+        self.training_data = training_data
 
     def test(self, test_features, feature_subset):
-        # guess the class for one test row using only the features in the subset
-        # feature numbers are 1-indexed so they match assignment output like {1,3,5}
-        if not self.training_rows:
+        if not self.training_data:
             return None
 
-        sorted_features = sorted(feature_subset)
-        test_values = [test_features[feature_id - 1] for feature_id in sorted_features]
+        # prints features as {1,2,3} not {0,1,2}
+        feature_list = sorted(feature_subset)
+        test_values = [test_features[feature_id - 1] for feature_id in feature_list]
 
         best_distance = float("inf")
         best_label = None
-
-        for train_label, train_features in self.training_rows:
-            train_values = [train_features[feature_id - 1] for feature_id in sorted_features]
-
-            # squared distance is enough, sqrt won't change which row is closest
-            squared_sum = sum((left - right) ** 2 for left, right in zip(test_values, train_values))
-            if squared_sum < best_distance:
-                best_distance = squared_sum
+        for train_label, train_features in self.training_data:
+            train_values = [train_features[feature_id - 1] for feature_id in feature_list]
+            distance = sum((a - b) ** 2 for a, b in zip(test_values, train_values))
+            if distance < best_distance:
+                best_distance = distance
                 best_label = train_label
 
         return best_label
@@ -153,45 +125,51 @@ class NearestNeighbor:
 # validator wrapper (scores how good a feature subset is)
 
 class Validator:
-    # this is the "wrapper", & nn inside leave-one-out evaluation
-    
-    def __init__(self, classifier, dataset_rows):
+    def __init__(self, classifier, data):
         self.classifier = classifier
-        self.dataset_rows = dataset_rows
+        self.data = data
 
     def evaluate(self, feature_subset, show_details=True):
-        # leave-one-out cross validation:
-        # hold out one row, train on the rest, see if we guess that row right
-        # repeat for every row and count how many we got correct
-        if not self.dataset_rows:
+        if not self.data:
             return 0.0
 
-        total_rows = len(self.dataset_rows)
-        correct_predictions = 0
+        total = len(self.data)
+        correct = 0
 
-        for row_index in range(total_rows):
-            # everything except the current row becomes training data
-            training_rows = self.dataset_rows[:row_index] + self.dataset_rows[row_index + 1:]
-            test_label, test_features = self.dataset_rows[row_index]
+        for i in range(total):
+            # leave one out — train on everyone except the row we're testing
+            train_data = self.data[:i] + self.data[i + 1:]
+            true_label, test_features = self.data[i]
 
-            self.classifier.train(training_rows)
-            guessed_label = self.classifier.test(test_features, feature_subset)
-            is_correct = guessed_label == test_label
-            correct_predictions += is_correct
+            self.classifier.train(train_data)
+            guess = self.classifier.test(test_features, feature_subset)
+            match = guess == true_label
+            correct += match
 
-            # print one line per instance when testing a specific subset
             if show_details:
                 print(
-                    f"Instance Id: {row_index}, Correct Label: {float(test_label):.1f}, "
-                    f"Guessed Label: {float(guessed_label):.1f}, Accurate: {is_correct}"
+                    f"Instance Id: {i}, Correct Label: {float(true_label):.1f}, "
+                    f"Guessed Label: {float(guess):.1f}, Accurate: {match}"
                 )
 
-        accuracy = correct_predictions / total_rows
+        accuracy = correct / total
         if show_details:
-            print(f"\nCorrectly Classified {correct_predictions}/{total_rows} instances.")
+            print(f"\nCorrectly Classified {correct}/{total} instances.")
             print(f"Accuracy: {accuracy:.2f}")
 
         return accuracy
+
+def format_feature_set(feature_collection):
+    return "{" + ",".join(str(feature_id) for feature_id in sorted(feature_collection)) + "}"
+
+
+def get_level_text(level_number):
+    level_words = ["", "single", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+    if level_number == 1:
+        return "single features"
+    if level_number <= 10:
+        return f"{level_words[level_number]}-feature sets"
+    return f"{level_number}-feature sets"
     
 # start of search algorithms
 def forward_selection(total_features, validator):
