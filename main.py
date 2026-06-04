@@ -109,12 +109,14 @@ class NearestNeighbor:
 
         # prints features as {1,2,3} not {0,1,2}
         feature_list = sorted(feature_subset)
+        # feature IDs start at 1, & lists start at 0
         test_values = [test_features[feature_id - 1] for feature_id in feature_list]
 
         best_distance = float("inf")
         best_label = None
         for train_label, train_features in self.training_data:
             train_values = [train_features[feature_id - 1] for feature_id in feature_list]
+            # no sqrt needed since we're only comparing distances
             distance = sum((a - b) ** 2 for a, b in zip(test_values, train_values))
             if distance < best_distance:
                 best_distance = distance
@@ -195,6 +197,7 @@ def forward_selection(num_features, validator):
         level_acc = -1.0
 
         for feature_id in sorted(set(range(1, num_features + 1)) - set(current)):
+            # try adding one new feature to the current best set
             candidate = current + [feature_id]
             acc = validator.evaluate(set(candidate), show_details=False) * 100.0
             print(f"Using feature(s) {format_feature_set(candidate)} accuracy is {acc:.1f}%")
@@ -233,6 +236,7 @@ def backward_elimination(num_features, validator):
         level_acc = -1.0
 
         for feature_id in sorted(current):
+            # try removing one feature and see if accuracy improves
             candidate = current - {feature_id}
             acc = validator.evaluate(candidate, show_details=False) * 100.0
             print(f"Using feature(s) {format_feature_set(candidate)} accuracy is {acc:.1f}%")
