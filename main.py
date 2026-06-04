@@ -107,41 +107,45 @@ def normalize_features(dataset_rows):
 
     return normalized_rows
 
+def load_and_normalize(file_path):
+    # one helper so we don't copy load + normalize steps in multiple places
+    dataset_rows = load_data(file_path)
+    if not dataset_rows:
+        return None, None
+    return dataset_rows, normalize_features(dataset_rows)
+
+# nearest neighbor classifier
+
 class NearestNeighbor:
-    # 1-nearest-neighbor: picking training row with smallest euclidean distance
-    # assuming two classes and continuous features only
+    # simple 1-nearest-neighbor using euclidean distance
+    # assignment says get this working before trying the search algorithms
 
     def __init__(self):
         self.training_rows = []  # list of (class_label, feature_values)
 
     def train(self, training_rows):
-        # NN just memorizes training data (no real "learning" step)
+        # nn doesn't really train, it just remembers all the rows
         self.training_rows = training_rows
 
     def test(self, test_features, feature_subset):
-        # predict class for one test instance using only feature_subset columns
-        # feature_subset is 1-indexed to match assignment / print format {1,2,3}
-        if len(self.training_rows) == 0:
+        # guess the class for one test row using only the features in the subset
+        # feature numbers are 1-indexed so they match assignment output like {1,3,5}
+        if not self.training_rows:
             return None
 
         sorted_features = sorted(feature_subset)
-        test_subset_values = [test_features[feature_id - 1] for feature_id in sorted_features]
+        test_values = [test_features[feature_id - 1] for feature_id in sorted_features]
 
         best_distance = float("inf")
         best_label = None
 
         for train_label, train_features in self.training_rows:
-            train_subset_values = [train_features[feature_id - 1] for feature_id in sorted_features]
+            train_values = [train_features[feature_id - 1] for feature_id in sorted_features]
 
-            # euclidean distance on the selected features only
-            squared_sum = 0.0
-            for value_index in range(len(test_subset_values)):
-                difference = test_subset_values[value_index] - train_subset_values[value_index]
-                squared_sum += difference * difference
-
-            distance = math.sqrt(squared_sum)
-            if distance < best_distance:
-                best_distance = distance
+            # squared distance is enough, sqrt won't change which row is closest
+            squared_sum = sum((left - right) ** 2 for left, right in zip(test_values, train_values))
+            if squared_sum < best_distance:
+                best_distance = squared_sum
                 best_label = train_label
 
         return best_label
