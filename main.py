@@ -1,5 +1,55 @@
-import math
+import os
 import time
+
+# hardcoding datasets and and small localized helpers for future use
+# load data, normalize features, score subsets with leave-one-out, run forward/backward search
+
+# dataset picker — all files live in the datasets/ folder
+DATASET_FOLDER = "datasets"
+DATASETS = {
+    1: ("Small dataset", "CS170_Small_DataSet__17.txt"),
+    2: ("Large dataset", "CS170_Large_DataSet__23.txt"),
+    # part 2 real-world dataset
+    3: ("Real dataset", "wine_data.txt"),
+}
+
+# hardcoded feature subsets for the "test one subset" menu option
+SUBSET_TESTS = {
+    1: (1, {3, 5, 7}),
+    2: (2, {1, 15, 27}),
+}
+
+
+def get_dataset_path(choice):
+    # turn menu number into full file path like datasets/CS170_Small_DataSet__17.txt
+    if choice not in DATASETS:
+        return None
+    return os.path.join(DATASET_FOLDER, DATASETS[choice][1])
+
+
+def pick_dataset():
+    # ask user to pick small, large, or real dataset (same numbered style as algorithm menu)
+    print("\nWhich dataset do you want to use?")
+    for number, (label, _) in DATASETS.items():
+        print(f"    {number}) {label}")
+
+    try:
+        choice = int(input().strip())
+    except ValueError:
+        print("Invalid choice. Please enter 1, 2, or 3.")
+        return None
+
+    file_path = get_dataset_path(choice)
+    if file_path is None:
+        print("Invalid choice. Please enter 1, 2, or 3.")
+        return None
+    if not os.path.isfile(file_path):
+        print(f"Error: could not find dataset file at {file_path}")
+        return None
+
+    label, file_name = DATASETS[choice]
+    print(f"Selected {label} ({file_name})")
+    return file_path
 
 # data loading and preprocessing
 
