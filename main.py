@@ -53,64 +53,56 @@ def pick_dataset():
 
 # data loading and preprocessing
 
-def load_data(file_name):
-    # load dataset from file
-    # first column = class label, rest = feature values
+def load_data(file_path):
+    # load dataset from file, first column is class, rest are features
+    # space-separated files while wine file uses commas instead
     dataset_rows = []
 
-    # open the file and read the data
-    with open(file_name, "r") as input_file:
+    with open(file_path, "r") as input_file:
         for raw_line in input_file:
-            split_values = raw_line.strip().split()
-            # split the values by spaces
-            if len(split_values) == 0:
-                continue  # skip any blank lines
+            line_text = raw_line.strip()
+            if not line_text:
+                continue  # skip empty lines
 
-            class_label = int(float(split_values[0]))
-            feature_values = [float(value) for value in split_values[1:]]
+            if "," in line_text:
+                parts = [value.strip() for value in line_text.split(",") if value.strip()]
+            else:
+                parts = line_text.split()
+
+            class_label = int(float(parts[0]))
+            feature_values = [float(value) for value in parts[1:]]
             dataset_rows.append((class_label, feature_values))
 
     return dataset_rows
 
 def normalize_features(dataset_rows):
-    # min-max normalize each feature column:
-    # normalized = (value - min) / (max - min)
-    if len(dataset_rows) == 0:
+    # min-max normalize each feature column: (value - min) / (max - min)
+    # features in file aren't normalized, so we fix that here
+    if not dataset_rows or not dataset_rows[0][1]:
         return dataset_rows
 
     total_features = len(dataset_rows[0][1])
-    if total_features == 0:
-        return dataset_rows
-
-    # initialize min and max trackers
     column_mins = [float("inf")] * total_features
     column_maxs = [float("-inf")] * total_features
 
-    # scan all rows once to get each feature's min and max
+    # go through all rows and find the smallest/largest value for each feature
     for class_label, feature_values in dataset_rows:
-        for feature_index in range(total_features):
-            current_value = feature_values[feature_index]
-            if current_value < column_mins[feature_index]:
-                column_mins[feature_index] = current_value
-            if current_value > column_maxs[feature_index]:
-                column_maxs[feature_index] = current_value
+        for feature_index, value in enumerate(feature_values):
+            if value < column_mins[feature_index]:
+                column_mins[feature_index] = value
+            elif value > column_maxs[feature_index]:
+                column_maxs[feature_index] = value
 
-    # build normalized dataset
+    # now scale every value into the 0 to 1 range per column
     normalized_rows = []
     for class_label, feature_values in dataset_rows:
         normalized_values = []
-        for feature_index in range(total_features):
-            min_value = column_mins[feature_index]
-            max_value = column_maxs[feature_index]
-            denominator = max_value - min_value
-
-            if denominator == 0:
-                # if all values in this column are the same, set to 0
-                normalized_values.append(0.0)
+        for feature_index, value in enumerate(feature_values):
+            span = column_maxs[feature_index] - column_mins[feature_index]
+            if span == 0:
+                normalized_values.append(0.0)  # all same value in this column
             else:
-                normalized_number = (feature_values[feature_index] - min_value) / denominator
-                normalized_values.append(normalized_number)
-
+                normalized_values.append((value - column_mins[feature_index]) / span)
         normalized_rows.append((class_label, normalized_values))
 
     return normalized_rows
