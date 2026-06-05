@@ -1,0 +1,6 @@
+Cluster vs actual wine class
+Cluster      1   2   3
+Wine Class            
+1            0  57   2
+2            2   0  69
+3           48   0   0
