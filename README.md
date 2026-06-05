@@ -2,7 +2,7 @@
 
 ## Overview
 
-Goal: Find good feature subsets for a **1-nearest-neighbor** classifier. Data is two-class, continuous features (class in the first column). Features get **min-max normalized**, then each subset is scored with **leave-one-out** cross-validation. Search is greedy **forward selection** (start empty, add one feature per level) or **backward elimination** (start with all features, drop one per level). The program prints the assignment-style trace so you can follow each candidate subset and accuracy.
+Part 1 of the project: pick good feature subsets for a nearest neighbor classifier. Our data has two classes and continuous features (class label is the first column). We min-max normalize, score each subset with leave-one-out cross-validation, then run forward selection or backward elimination. The program prints the trace the assignment expects so you can see every subset and accuracy.
 
 Team: Nikhil Rao, Akshay.
 
@@ -14,45 +14,55 @@ From this folder:
 python3 main.py
 ```
 
-1. Pick a dataset: **1** small, **2** large, **3** real (wine).
-2. Pick an algorithm: **1** forward selection, **2** backward elimination, **3** test one fixed feature subset (full per-instance trace).
+1. Pick a dataset: **1** small, **2** large, **3** real (wine)
+2. Pick an algorithm: **1** forward selection, **2** backward elimination, **3** test one fixed subset (prints every instance)
 
-If you use Conda, activate your env first, then run the same command.
+If you use Conda, activate your env first, then same command.
 
-Dataset files live in `datasets/`. Paths are tied to `main.py`, so you do not have to `cd` into a specific folder as long as you run from the project root (or pass the usual relative layout).
+Input files are in `datasets/`. Paths are tied to `main.py` so you can run from the project root.
 
 ## Code map
 
 **Classes**
 
-- `NearestNeighbor` - stores training rows, predicts by smallest squared Euclidean distance on the chosen features (feature ids are **1-indexed** like `{4,5}` in the handout).
-- `Validator` - leave-one-out wrapper: hold out each instance once, train NN on the rest, count correct guesses.
+- `NearestNeighbor` - finds the closest training row on the selected features (numbered from 1 like `{4,5}` in the handout)
+- `Validator` - leave-one-out wrapper that scores how good a subset is
 
 **Helpers / search**
 
-- `load_data`, `normalize_features` - read file (space-separated CS170 sets; comma-separated wine), min-max each column.
-- `format_feature_set`, `get_level_text` - trace formatting for subsets and search levels.
-- `forward_selection`, `backward_elimination` - nested-loop greedy search; keeps the best subset seen at any level even if accuracy drops later (warning line matches the sample output).
+- `load_data`, `normalize_features` - read the file and scale each feature column (wine is csv, cs170 files are space separated)
+- `format_feature_set`, `get_level_text` - formatting for the search trace
+- `forward_selection`, `backward_elimination` - greedy nested-loop search; keeps the best subset seen at any level
 
 **Driver**
 
-- `pick_dataset` - menu for small / large / real.
-- `run_specific_feature_subset_test` - option 3 only; timed load + full LOOCV trace.
-- `main()` - dataset + algorithm menus, normalize, run search, print final best subset and accuracy.
+- `pick_dataset` - small / large / real menu
+- `run_specific_feature_subset_test` - option 3, full leave-one-out trace
+- `main()` - ties it all together
 
 ## Datasets
 
 | Menu | File | Notes |
 |------|------|--------|
-| 1 Small | `datasets/CS170_Small_DataSet__17.txt` | 700 instances, **8** features |
-| 2 Large | `datasets/CS170_Large_DataSet__23.txt` | 3000 instances, **18** features |
-| 3 Real | `datasets/wine_data.txt` | 178 instances, **13** features (Part 2 style) |
+| 1 Small | `datasets/CS170_Small_DataSet__17.txt` | 700 rows, 8 features |
+| 2 Large | `datasets/CS170_Large_DataSet__23.txt` | 3000 rows, 18 features |
+| 3 Real | `datasets/wine_data.txt` | 178 rows, 13 features |
 
 **Subset test presets (menu 3)**
 
 - Small: `{3, 5, 7}`
-- Large: `{1, 5, 17}` - must stay at most 18; an old handout example used feature 27 on a different 27-feature file.
+- Large: `{1, 5, 17}` (only valid because this file has 18 features)
 
 ## Requirements
 
-Python 3.x - stdlib only (`os`, `time`). No NumPy/pandas required.
+`main.py` uses Python 3 stdlib only (`os`, `time`).
+
+## Dendrogram (Part 3)
+
+Clustering is a separate script (needs pandas, scipy, sklearn, matplotlib):
+
+```bash
+python3 dendrogram.py
+```
+
+Uses wine from `datasets/`, saves the plot to `data/wine_dendrogram.png`, prints a cluster vs class table, and saves that to `data/wine_cluster_comparison.txt`.
